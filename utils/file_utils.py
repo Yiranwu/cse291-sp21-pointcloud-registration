@@ -9,6 +9,10 @@ def load_pickle(filename):
     with open(filename, 'rb') as f:
         return pickle.load(f)
 
+def save_pickle(filename, obj):
+    with open(filename, 'wb') as f:
+        pickle.dump(obj,f)
+
 #data_root_dir = "/home/yiran/pc_mapping/HW2/data"
 utils_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(utils_dir)

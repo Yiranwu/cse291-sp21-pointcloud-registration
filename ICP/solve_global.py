@@ -9,6 +9,23 @@ import json
 import time
 from pathos.multiprocessing import ProcessingPool as Pool
 import sys
+from utils.file_utils import testing_data_root, load_pickle, data_root_dir
+from benchmark_utils.pose_evaluator import PoseEvaluator
+
+csv_path = testing_data_root + '/objects_v1.csv'
+pose_evaluator = PoseEvaluator(csv_path)
+object_names = load_pickle(data_root_dir + '/object_names.pkl')
+def eval(pred, gt, object_id):
+    pred=np.array(pred)
+    gt=np.array(gt)
+    R_pred = pred[:3,:3]
+    t_pred = pred[:3, 3]
+    R_gt = gt[:3,:3]
+    t_gt = gt[:3, 3]
+
+    object_name = object_names[object_id]
+    result = pose_evaluator.evaluate(object_name, R_pred, R_gt,t_pred,t_gt,np.ones(3))
+    return result['rre_symmetry'], result['pts_err']
 
 icp_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(icp_dir)
@@ -98,18 +115,18 @@ for i in range(len(csv_data)):
         gt_pcs.append(pcd)
 
 
-#testing_pc_root = data_root_dir + '/training_pc'
-#rgb_files, depth_files, label_files, meta_files = get_data_files(training_data_dir,
-#                                                                 target_levels=(1,2))
-testing_pc_root = data_root_dir + '/testing_pc'
-rgb_files, depth_files, label_files, meta_files = get_data_files(testing_data_dir,
+testing_pc_root = data_root_dir + '/training_pc'
+rgb_files, depth_files, label_files, meta_files = get_data_files(training_data_dir,
                                                                  target_levels=(1,2))
+#testing_pc_root = data_root_dir + '/testing_pc'
+#rgb_files, depth_files, label_files, meta_files = get_data_files(testing_data_dir,
+#                                                                 target_levels=(1,2))
 testing_pcs = []
 
 ans = {}
 counter=0
 
-num_processes = 8
+num_processes = 10
 num_initial_poses = 64
 pool = Pool(num_processes)
 
@@ -240,7 +257,9 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
         #print('voxel_size: ',(target_points_np.max(axis=0)-target_points_np.min(axis=0)).min()/5)
         #draw_registration_result_original_color_inverse(object_pcd, target_pcd, best_transformation)
         #exit()
-        poses.append(transformation.tolist())
+        degerr, pterr = eval(best_transformation, meta['poses_world'][object_id], object_id)
+        print('degerr=%f, pterr=%f'%(degerr, pterr))
+        poses.append(best_transformation.tolist())
     ans_scene['poses_world'] = poses
     ans[instance_name] = ans_scene
     #visualize_pc(testing_pc)
@@ -248,6 +267,8 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
 
 pool.close()
 pool.join()
+if os.path.exists("icp_global.json"):
+    os.system('rm icp_global.json')
 with open('icp_global.json', 'w') as f:
     json.dump(ans, f)
 
