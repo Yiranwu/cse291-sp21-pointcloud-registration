@@ -35,7 +35,8 @@ for i in range(len(csv_data)):
         gt_pcs.append(pcd)
 
 
-with open('../nn.json', 'r') as f:
+with open('../pointnet/nn.json', 'r') as f:
+#with open('../icp_global.json', 'r') as f:
     nn_preds = json.load(f)
 #testing_pc_root = data_root_dir + '/training_pc'
 #rgb_files, depth_files, label_files, meta_files = get_data_files(training_data_dir,
@@ -80,40 +81,40 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
         testing_colors = np.asarray(testing_pc.colors)
 
         object_pcd = o3d.geometry.PointCloud()
+        nn_trans = np.array(nn_pred[object_id])
         points = o3d.utility.Vector3dVector(testing_pts[point_idx])
         colors = o3d.utility.Vector3dVector(testing_colors[point_idx])
         #print('object pcd points: ', testing_pts[point_idx].shape[0])
         object_pcd.points = points
         object_pcd.colors = colors
-        '''
-        if(np.asarray(points).shape[0]==0):
-            print(np.asarray(points).shape)
-            print(object_id)
-            print(object_ids)
-            print(label.dtype)
-            print(label)
-            print(meta['poses_world'][object_id])
-            print(np.where(point_idx))
-            exit()
-        '''
         object_geom_center = np.asarray(points).mean(axis=0)
 
         target_pcd = copy.deepcopy(gt_pcs[object_id])
         #print('target pcd points: ', np.asarray(target_pcd.points).shape[0])
-        target_pcd.points = o3d.utility.Vector3dVector(np.asarray(target_pcd.points)*scale)
-        target_geom_center = np.asarray(target_pcd.points).mean(axis=0)
+        #exit()
+        R1=nn_trans[:3,:3]
+        t1=nn_trans[:3,3]
+        target_pts=np.matmul(R1,(np.asarray(target_pcd.points)*scale).reshape([-1,3,1])).reshape([-1,3])+t1
 
-        initial_transformation = np.array(nn_pred[object_id])
+        target_pcd.points = o3d.utility.Vector3dVector(target_pts)
+        target_geom_center = np.asarray(target_pcd.points).mean(axis=0)
+        initial_transformation = np.identity(4)
         #visualize_pc(object_pcd)
         #visualize_pc(target_pcd)
-        #draw_registration_result_original_color(object_pcd, target_pcd, np.identity(4))
+        #draw_registration_result_original_color(object_pcd, target_pcd, initial_transformation)
         #transformation = colored_registration(object_pcd, target_pcd)
         inverse_transformation = naive_icp(object_pcd, target_pcd, 0.05, initial_transformation)
         R = inverse_transformation[:3,:3]
-        Rinv = np.linalg.inv(R)
+        R2 = np.linalg.inv(R)
         t = inverse_transformation[0:3, 3:]
-        transformation = np.bmat([[Rinv, -Rinv@t],
+        t2=-R2@t
+        Rreal = R2@R1
+        treal = (R2@t1.reshape([3]) + t2.reshape([3])).reshape([3,1])
+        transformation =  np.bmat([[R2, t2],
                                   [np.zeros([1,3]),np.eye(1)]])
+        real_transformation = np.bmat([[Rreal, treal],
+                                  [np.zeros([1,3]),np.eye(1)]])
+        #print(real_transformation)
         #print(transformation)
         #print('------')
         #gt_transformation = meta['poses_world'][object_id]
@@ -123,7 +124,7 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
 
         #exit()
 
-        poses.append(transformation.tolist())
+        poses.append(real_transformation.tolist())
     ans_scene['poses_world'] = poses
     ans[instance_name] = ans_scene
     #visualize_pc(testing_pc)

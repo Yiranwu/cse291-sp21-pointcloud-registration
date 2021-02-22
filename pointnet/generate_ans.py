@@ -37,7 +37,9 @@ sym_Rs_np = load_pickle(data_root_dir + '/sym_Rs.pkl')
 sym_Rs = [torch.from_numpy(sym_R_np).float().to(device) for sym_R_np in sym_Rs_np]
 is_zinfs_np = load_pickle(data_root_dir + '/is_zinfs.pkl')
 is_zinfs = torch.from_numpy(is_zinfs_np).to(device)
-loss_func = PoseLoss(sym_Rs, is_zinfs)
+rot_axs_np = load_pickle(data_root_dir + '/rot_axs.pkl')
+rot_axs = torch.from_numpy(rot_axs_np).float().to(device)
+loss_func = PoseLoss(sym_Rs, is_zinfs, rot_axs)
 
 #net=PointNetCls().to(device)
 net = PointNetRot6d(channel=6).to(device)
