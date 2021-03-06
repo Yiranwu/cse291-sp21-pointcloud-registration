@@ -21,7 +21,10 @@ training_data_root = data_root_dir + "/training_data"
 training_data_dir = training_data_root + "/v2.2"
 testing_data_root = data_root_dir + "/testing_data"
 testing_data_dir = testing_data_root + "/v2.2"
+testing_data_perception_dir = data_root_dir+'/testing_data_perception/v2.2'
 split_dir = data_root_dir + "/training_data/splits/v2"
+training_image_feature_dir = data_root_dir + '/training_image_feature'
+testing_image_feature_dir = data_root_dir + '/testing_image_feature'
 
 def get_split_files(split_name):
     return append_prefix_to_data_files(dir_name=split_dir, lookup_table_filename=split_dir + '/%s.txt' % split_name)
@@ -44,7 +47,7 @@ def generate_file_lookup_table(dir_name, target_levels = (1,2)):
             continue
         result = parse("{}-{}-{}_{}.{}", fname)
         level_id, scene_id, variant_id, suffix, ext_name = result
-        if suffix=='meta' and int(level_id) in target_levels:
+        if suffix=='color_kinect' and int(level_id) in target_levels:
             file_names.append("%s-%s-%s"%(level_id, scene_id, variant_id))
     with open(dir_name + "/lookup_table.txt", "w") as f:
         for file_name in file_names:
