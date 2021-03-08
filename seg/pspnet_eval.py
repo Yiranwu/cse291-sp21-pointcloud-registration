@@ -19,38 +19,24 @@ from seg.datasets import RGBTrainingDataset
 from seg.seg_utils import class_weights
 from benchmark_pose_and_detection.sem_seg_evaluator import Evaluator
 
-model_name = "fcn8_resnet18"
-device = torch.device('cuda:0')
-batch_size = 8
+model_name = "pspnet_resnet34"
+device = torch.device('cuda:2')
+batch_size = 4
 n_classes = 82
-num_epochs = 100
+num_epochs = 10
 image_axis_minimum_size = 200
 pretrained = True
 fixed_feature = False
 
-training_dataset = RGBTrainingDataset(training_data_dir, image_axis_minimum_size)
-training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
+training_dataset = RGBTrainingDataset(training_data_dir, image_axis_minimum_size, subset=True)
+training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
 ### Model
 net = all_models.model_from_name[model_name](n_classes, batch_size,
                                                pretrained=pretrained,
                                                fixed_feature=fixed_feature)
-net.load_state_dict(torch.load(root_dir + '/saved_models/seg/fcn_epoch20_step1000.pth'))
+net.load_state_dict(torch.load(root_dir + '/saved_models/seg/pspnet_resnet18_epoch5_step1000.pth'))
+net.train()
 net.to(device)
-
-### Optimizers
-if pretrained and fixed_feature:  # fine tunning
-    params_to_update = net.parameters()
-    print("Params to learn:")
-    params_to_update = []
-    for name, param in net.named_parameters():
-        if param.requires_grad == True:
-            params_to_update.append(param)
-            print("\t", name)
-    optimizer = torch.optim.Adadelta(params_to_update)
-else:
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3000, gamma=0.4)
-
 
 evaluator = Evaluator()
 for step, (datas, labels, _) in tqdm(enumerate(training_loader)):

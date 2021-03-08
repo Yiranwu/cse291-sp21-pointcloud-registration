@@ -36,6 +36,8 @@ training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=Fa
 net = all_models.model_from_name[model_name](n_classes, batch_size,
                                                pretrained=pretrained,
                                                fixed_feature=fixed_feature)
+print(dir(net))
+exit()
 net.load_state_dict(torch.load(root_dir + '/saved_models/seg/fcn_epoch20_step1000.pth'))
 net.eval()
 net.to(device)

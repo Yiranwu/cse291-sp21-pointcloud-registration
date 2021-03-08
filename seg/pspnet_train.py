@@ -19,12 +19,13 @@ from seg.datasets import RGBTrainingDataset
 from seg.seg_utils import class_weights
 from benchmark_pose_and_detection.sem_seg_evaluator import Evaluator
 
-model_name = "pspnet_resnet18"
-device = torch.device('cuda:2')
+model_name = "unet_resnet50"
+device = torch.device('cuda:0')
 batch_size = 8
 n_classes = 82
 num_epochs = 100
 image_axis_minimum_size = 200
+focal_gamma=2
 pretrained = True
 fixed_feature = False
 
@@ -34,7 +35,7 @@ training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=Tr
 net = all_models.model_from_name[model_name](n_classes, batch_size,
                                                pretrained=pretrained,
                                                fixed_feature=fixed_feature)
-net.load_state_dict(torch.load(root_dir + '/saved_models/seg/%s_epoch10_step1000.pth'%model_name))
+#net.load_state_dict(torch.load(root_dir + '/saved_models/seg/%s_epoch10_step1000.pth'%model_name))
 net.to(device)
 
 ### Optimizers
@@ -49,7 +50,7 @@ if pretrained and fixed_feature:  # fine tunning
     optimizer = torch.optim.Adadelta(params_to_update)
 else:
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3000, gamma=0.4)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3000, gamma=0.5)
 
 class_weights = torch.from_numpy(class_weights).float()
 loss_metric = torch.nn.CrossEntropyLoss(weight=class_weights)
@@ -74,7 +75,7 @@ for epoch in range(num_epochs):
         #loss=loss_metric(preds, labels)
         ce_loss = torch.nn.CrossEntropyLoss(reduction='none')(preds,labels)  # important to add reduction='none' to keep per-batch-item loss
         pt = torch.exp(-ce_loss)
-        focal_loss = (0.25 * (1 - pt) ** 3 * ce_loss).mean()
+        focal_loss = (0.25 * (1 - pt) ** focal_gamma * ce_loss).mean()
         loss=focal_loss
 
         loss.backward()
@@ -85,5 +86,5 @@ for epoch in range(num_epochs):
             evaluator.update(pred, gt)
         print('epoch=%d, loss=%f, iou=%f'%(epoch, loss.item(), evaluator.overall_iou))
         if (step+1)%1000==0:
-            torch.save(net.state_dict(), root_dir + '/saved_models/seg/%s_epoch%d_step%d.pth'%(model_name, epoch, (step+1)))
+            torch.save(net.state_dict(), root_dir + '/saved_models/seg/%s_focal%d_epoch%d_step%d.pth'%(model_name, focal_gamma, epoch, (step+1)))
     #print('epoch %d, acc=%f'%(epoch, acc))

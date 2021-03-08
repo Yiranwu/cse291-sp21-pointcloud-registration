@@ -39,3 +39,6 @@ class PoseTestingDataset(Dataset):
         pc = torch.from_numpy(np.load(self.pc_files[idx])).transpose(0,1).float()
         pc_mean = self.pc_means[idx]
         return pc, pc_mean
+
+if __name__=='__main__':
+    training_dataset = PoseTrainingDataset(data_root_dir+'/training_object_pc')
