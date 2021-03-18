@@ -37,19 +37,24 @@ class RGBImageDataset(Dataset):
         return rgb, self.rgb_files[idx]
 
 class RGBTrainingDataset(Dataset):
-    def __init__(self, data_path, im_size, subset=False):
+    def __init__(self, data_path, im_size, subset=False, label_downsample=True):
         super(RGBTrainingDataset, self).__init__()
         self.subset = subset
+        self.label_downsample=label_downsample
         rgb_files, depth_files, label_files, meta_files = get_data_files(data_path,
-                                                                         target_levels=(1, 2))
+                                                                         target_levels=(1, 2, 3))
         self.rgb_files = rgb_files
         self.label_files = label_files
         self.transforms_rgb = T.Compose([T.Resize(im_size),
                                          T.ToTensor(),
                                          T.Normalize(mean=[0.485, 0.456, 0.406],
                                                      std=[0.229, 0.224, 0.225])])
-        self.transforms_label= T.Compose([T.Resize(im_size, interpolation=Image.NEAREST),
-                                         T.ToTensor()])
+        if label_downsample:
+            self.transforms_label= T.Compose([T.Resize(im_size, interpolation=Image.NEAREST),
+                                             T.ToTensor()])
+        else:
+            self.transforms_label= T.Compose([T.ToTensor()])
+
         self.instance_ids = [parse('{}/v2.2/{}_label_kinect.png', fname)[-1] for fname in label_files]
 
     def __len__(self):
@@ -68,7 +73,7 @@ class RGBTestingDataset(Dataset):
     def __init__(self, data_path, im_size):
         super(RGBTestingDataset, self).__init__()
         rgb_files, depth_files, label_files, meta_files = get_data_files(data_path,
-                                                                         target_levels=(1, 2))
+                                                                         target_levels=(1, 2, 3))
         self.rgb_files = rgb_files
         self.transforms_rgb = T.Compose([T.Resize(im_size),
                                          T.ToTensor(),

@@ -9,8 +9,6 @@ import json
 import time
 from pathos.multiprocessing import ProcessingPool as Pool
 import sys
-
-'''
 from utils.file_utils import testing_data_root, load_pickle, data_root_dir, testing_data_final_dir
 from benchmark_utils.pose_evaluator import PoseEvaluator
 
@@ -28,14 +26,14 @@ def eval(pred, gt, object_id):
     object_name = object_names[object_id]
     result = pose_evaluator.evaluate(object_name, R_pred, R_gt,t_pred,t_gt,np.ones(3))
     return result['rre_symmetry'], result['pts_err']
-'''
+
 icp_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(icp_dir)
 sys.path.append(root_dir)
 
 from utils.file_utils import training_data_dir, testing_data_dir, split_dir,\
     get_split_files, get_data_files, load_pickle, testing_data_root, data_root_dir,\
-    root_dir, utils_dir, testing_data_final_dir
+    root_dir, utils_dir
 from utils.preprocessing_utils import get_pc_from_image_files, sample_pc_from_mesh_file
 from utils.visualize_utils import visualize_pc
 from ICP import naive_icp, naive_icp_colored, draw_registration_result_original_color, \
@@ -131,6 +129,9 @@ counter=0
 num_processes = 10
 num_initial_poses = 64
 pool = Pool(num_processes)
+
+with open(data_root_dir+'/icp_global_final.json', 'r') as f:
+    ans_final = json.load(f)
 for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
                                                        label_files, meta_files):
     start_time=time.time()
@@ -138,8 +139,8 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
 
     #print('processing #%d %s'%(counter, instance_name))
     counter+=1
-    #if(counter>3):
-    #    break
+    if(counter>2):
+        break
     testing_pc_file = testing_pc_root + '/%s.ply'%instance_name
     testing_pc = get_pc_from_image_files(rgb_file, depth_file, meta_file)
     #if not os.path.exists(testing_pc_file):
@@ -258,7 +259,7 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
         #print('single object time: ', time.time()-object_begin_time)
         #print('extent: ', target_points_np.max(axis=0)-target_points_np.min(axis=0))
         #print('voxel_size: ',(target_points_np.max(axis=0)-target_points_np.min(axis=0)).min()/5)
-        #draw_registration_result_original_color_inverse(object_pcd, target_pcd, best_transformation)
+        draw_registration_result_original_color_inverse(object_pcd, target_pcd, best_transformation)
         #exit()
         #degerr, pterr = eval(best_transformation, meta['poses_world'][object_id], object_id)
         #print('degerr=%f, pterr=%f'%(degerr, pterr))
@@ -270,8 +271,8 @@ for rgb_file, depth_file, label_file, meta_file in zip(rgb_files, depth_files,
 
 pool.close()
 pool.join()
-if os.path.exists(data_root_dir+"/icp_global_final.json"):
+if os.path.exists("./icp_global_final.json"):
     os.system('rm icp_global_final.json')
-with open(data_root_dir+'/icp_global_final.json', 'w') as f:
+with open('./icp_global_final.json', 'w') as f:
     json.dump(ans, f)
 

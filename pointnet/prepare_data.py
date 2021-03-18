@@ -11,13 +11,13 @@ sys.path.append(root_dir)
 
 from utils.file_utils import training_data_dir, testing_data_dir, split_dir,\
     get_split_files, get_data_files, load_pickle, testing_data_root, data_root_dir,\
-    root_dir, utils_dir, save_pickle
+    root_dir, utils_dir, save_pickle, testing_data_final_root, testing_data_final_dir, training_data_root
 from utils.preprocessing_utils import get_pc_from_image_files, sample_pc_from_mesh_file
 from utils.visualize_utils import visualize_pc
 from benchmark_utils.pose_evaluator import PoseEvaluator
 
-def process_symmetries():
-    csv_path = testing_data_root+'/objects_v1.csv'
+def process_symmetries(image_data_root):
+    csv_path = image_data_root+'/objects_v1.csv'
     pose_evaluator = PoseEvaluator(csv_path)
     object_db = pose_evaluator.objects_db
     csv_data=pd.read_csv(csv_path)
@@ -42,12 +42,12 @@ def process_symmetries():
     save_pickle(data_root_dir + '/object_names.pkl', object_names)
     save_pickle(data_root_dir + '/rot_axs.pkl', rot_axs)
 
-def process_scene_images(image_data_dir, is_training=True, subset=False, subset_scenes=100):
-    mode = "training" if is_training else 'testing'
+def process_scene_images(image_data_dir, is_training=True, prefix='training', subset=False, subset_scenes=100):
+    mode = prefix
     if subset:
         mode = mode+'_subset'
     rgb_files, depth_files, label_files, meta_files = get_data_files(image_data_dir,
-                                                                     target_levels=(1,2))
+                                                                     target_levels=(1,2,3))
     object_pc_dir = data_root_dir + '/%s_object_pc'%mode
     pc_files = []
     Rs = []
@@ -154,7 +154,9 @@ def unbatch_prediction(pred):
     return ans
 
 if __name__=='__main__':
-    process_symmetries()
-    #process_scene_images(training_data_dir, is_training=True, subset=False)
+    root_path = testing_data_final_root
+    dir_path = testing_data_final_dir
+    process_symmetries(root_path)
+    process_scene_images(dir_path, is_training=False, prefix='testing_data_final', subset=False)
     #process_scene_images(training_data_dir, is_training=True, subset=True, subset_scenes=1)
     #process_scene_images(testing_data_dir, False)

@@ -96,6 +96,29 @@ class PSPNet_pn2(torch.nn.Module):
 
         return o
 
+class FCN_pn2(nn.Module):
+    def __init__(self, fcn_model, im_size, pc_im_size):
+        super(FCN_pn2, self).__init__()
+        self.fcn_model = fcn_model
+        self.pn2 = PN2(num_classes=82)
+        self.im_size=  im_size
+        self.pc_im_size = pc_im_size
+        self.score_linear = nn.Conv2d(82+128, 82, 1)
+
+    def forward(self, x, pc):
+        feature_2d=self.fcn_model(x)
+        feature_3d=self.pn2(pc)
+        pc_im_h, pc_im_w = self.pc_im_size
+        batch_size = feature_3d.shape[0]
+        feature_3d = feature_3d.view([batch_size, -1, pc_im_h, pc_im_w])
+        feature_3d = F.interpolate(feature_3d, size=[200, 355], mode='bilinear', align_corners=False)
+        feature = torch.cat([feature_2d, feature_3d], dim=1)
+        x=self.score_linear(F.relu(feature))
+        return x
+
+
+
+
 if __name__ == '__main__':
     import  torch
     model = get_model(13)

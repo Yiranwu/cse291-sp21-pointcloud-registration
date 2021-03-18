@@ -50,7 +50,7 @@ if pretrained and fixed_feature:  # fine tunning
     optimizer = torch.optim.Adadelta(params_to_update)
 else:
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3000, gamma=0.5)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.5)
 
 class_weights = torch.from_numpy(class_weights).float()
 loss_metric = torch.nn.CrossEntropyLoss(weight=class_weights)

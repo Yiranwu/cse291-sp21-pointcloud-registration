@@ -18,7 +18,7 @@ from seg.datasets import PCTrainingDataset, RGBTrainingDataset
 from seg.seg_utils import class_weights
 from benchmark_pose_and_detection.sem_seg_evaluator import Evaluator
 
-model_name = 'pspnet_resnet18'
+model_name = 'fcn16_resnet50'
 device = torch.device('cuda:2')
 batch_size = 4
 n_classes = 82
@@ -30,7 +30,7 @@ fixed_feature = False
 net_2d = all_models.model_from_name[model_name](n_classes, batch_size,
                                                pretrained=pretrained,
                                                fixed_feature=fixed_feature)
-net_2d.load_state_dict(torch.load(root_dir + '/saved_models/seg/pspnet_resnet18_epoch10_step1000.pth'))
+net_2d.load_state_dict(torch.load(root_dir + '/saved_models/seg/fcn16_resnet50_epoch22_step1000.pth'))
 training_dataset = PCTrainingDataset(training_data_dir, 200, 100)
 training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
 ### Model

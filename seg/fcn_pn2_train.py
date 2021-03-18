@@ -3,9 +3,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torch.nn.functional as F
 import numpy as np
-from torchvision.models.segmentation import fcn_resnet50
-from torchvision.models.segmentation.fcn import FCNHead
-from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 import os
 import sys
 from segmentation.models import all_models
@@ -15,29 +12,28 @@ root_dir = os.path.dirname(seg_dir)
 sys.path.append(root_dir)
 
 from utils.file_utils import training_data_dir, training_image_feature_dir
-from seg.datasets import RGBTrainingDataset
+from seg.pn2_sem_seg_msg import FCN_pn2
+from seg.datasets import PCTrainingDataset, RGBTrainingDataset
 from seg.seg_utils import class_weights
-from seg.fcn_model import *
 from benchmark_pose_and_detection.sem_seg_evaluator import Evaluator
 
-model_name = "fcn8_resnet101"
-device = torch.device('cuda:0')
-batch_size = 32
+model_name = 'fcn16_resnet50'
+device = torch.device('cuda:2')
+batch_size = 4
 n_classes = 82
 num_epochs = 100
 image_axis_minimum_size = 200
 pretrained = True
 fixed_feature = False
 
-training_dataset = RGBTrainingDataset(training_data_dir, image_axis_minimum_size, label_downsample=True)
-#training_dataset = RGBTrainingDataset(training_data_dir, image_axis_minimum_size, label_downsample=True)
-training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=16)
+net_2d = all_models.model_from_name[model_name](n_classes, batch_size,
+                                               pretrained=pretrained,
+                                               fixed_feature=fixed_feature)
+net_2d.load_state_dict(torch.load(root_dir + '/saved_models/seg/fcn16_resnet50_epoch22_step1000.pth'))
+training_dataset = PCTrainingDataset(training_data_dir, 200, 100)
+training_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
 ### Model
-net = fcn8_resnet101(n_classes, batch_size,
-                     pretrained=pretrained,
-                     fixed_feature=fixed_feature)
-net=nn.DataParallel(net, device_ids=[0,1,2])
-#net.load_state_dict(torch.load(root_dir + '/saved_models/seg/%s_epoch10_step1000.pth'%model_name))
+net = FCN_pn2(fcn_model=net_2d, im_size=[200,355],pc_im_size=[100,177])
 net.to(device)
 
 ### Optimizers
@@ -52,18 +48,21 @@ if pretrained and fixed_feature:  # fine tunning
     optimizer = torch.optim.Adadelta(params_to_update)
 else:
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3000, gamma=0.4)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.3)
 
 class_weights = torch.from_numpy(class_weights).float()
 loss_metric = torch.nn.CrossEntropyLoss(weight=class_weights)
 loss_metric = loss_metric.to(device)
 for epoch in range(num_epochs):
-    for step, (datas, labels, _) in tqdm(enumerate(training_loader)):
+    for step, (pcs, rgbs, labels, _) in tqdm(enumerate(training_loader)):
         evaluator = Evaluator()
         optimizer.zero_grad()
-        datas = datas.to(device)
+        #exit()
+        pcs = pcs.to(device)
+        rgbs=rgbs.to(device)
         labels = labels.to(device)
-        preds = net(datas)
+
+        preds = net(rgbs, pcs)
         preds_label = preds.max(dim=1).indices
         #_, h, w = label.shape
         #is_object_tensor = (label<=78)
@@ -77,7 +76,7 @@ for epoch in range(num_epochs):
         #loss=loss_metric(preds, labels)
         ce_loss = torch.nn.CrossEntropyLoss(reduction='none')(preds,labels)  # important to add reduction='none' to keep per-batch-item loss
         pt = torch.exp(-ce_loss)
-        focal_loss = (0.25 * (1 - pt) ** 2 * ce_loss).mean()
+        focal_loss = (0.25 * (1 - pt) ** 4 * ce_loss).mean()
         loss=focal_loss
 
         loss.backward()
@@ -87,6 +86,6 @@ for epoch in range(num_epochs):
         for pred, gt in zip(preds_label, labels):
             evaluator.update(pred, gt)
         print('epoch=%d, loss=%f, iou=%f'%(epoch, loss.item(), evaluator.overall_iou))
-        if (step+1)%1000==0:
-            torch.save(net.state_dict(), root_dir + '/saved_models/seg/%s_epoch%d_step%d.pth'%(model_name, epoch, (step+1)))
+        if (step+1)%200==0:
+            torch.save(net.state_dict(), root_dir + '/saved_models/seg/fcn_pn2_epoch%d_step%d.pth'%(epoch, (step+1)))
     #print('epoch %d, acc=%f'%(epoch, acc))

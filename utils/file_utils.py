@@ -22,6 +22,8 @@ training_data_dir = training_data_root + "/v2.2"
 testing_data_root = data_root_dir + "/testing_data"
 testing_data_dir = testing_data_root + "/v2.2"
 testing_data_perception_dir = data_root_dir+'/testing_data_perception/v2.2'
+testing_data_final_root = data_root_dir + '/testing_data_final'
+testing_data_final_dir = testing_data_final_root + '/v2.2'
 split_dir = data_root_dir + "/training_data/splits/v2"
 training_image_feature_dir = data_root_dir + '/training_image_feature'
 testing_image_feature_dir = data_root_dir + '/testing_image_feature'
@@ -49,13 +51,13 @@ def generate_file_lookup_table(dir_name, target_levels = (1,2)):
         level_id, scene_id, variant_id, suffix, ext_name = result
         if suffix=='color_kinect' and int(level_id) in target_levels:
             file_names.append("%s-%s-%s"%(level_id, scene_id, variant_id))
-    with open(dir_name + "/lookup_table.txt", "w") as f:
+    with open(dir_name + "/lookup_table_%d.txt"%target_levels[-1], "w") as f:
         for file_name in file_names:
             f.write(file_name+'\n')
 
 def get_data_files(dir_name, target_levels = (1,2)):
-    lookup_table_filename = dir_name + "/lookup_table.txt"
+    lookup_table_filename = dir_name + "/lookup_table_%d.txt"%target_levels[-1]
     if not os.path.exists(lookup_table_filename):
         generate_file_lookup_table(dir_name, target_levels)
-    return append_prefix_to_data_files(dir_name, lookup_table_filename=None)
+    return append_prefix_to_data_files(dir_name, lookup_table_filename=lookup_table_filename)
 
